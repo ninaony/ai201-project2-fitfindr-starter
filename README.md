@@ -1,8 +1,8 @@
 # FitFindr — Starter Kit
 
-This starter kit contains everything you need to begin Project 2.
+FitFindr is a Groq-powered thrift shopping assistant: you describe what you're looking for, it finds the best match from a mock secondhand dataset, suggests how to style it with your existing wardrobe, and generates a shareable outfit caption.
 
-## What's Included
+## Data
 
 ```
 ai201-project2-fitfindr-starter/
@@ -11,7 +11,7 @@ ai201-project2-fitfindr-starter/
 │   └── wardrobe_schema.json   # Wardrobe format + example wardrobe
 ├── utils/
 │   └── data_loader.py         # Helper functions for loading the data
-├── planning.md                # Your planning template — fill this out first
+├── planning.md
 └── requirements.txt           # Python dependencies
 ```
 
@@ -22,6 +22,7 @@ pip install -r requirements.txt
 ```
 
 Set your Groq API key in a `.env` file (get a free key at [console.groq.com](https://console.groq.com)):
+
 ```
 GROQ_API_KEY=your_key_here
 ```
@@ -33,6 +34,7 @@ GROQ_API_KEY=your_key_here
 Each listing has: `id`, `title`, `description`, `category`, `style_tags`, `size`, `condition`, `price`, `colors`, `brand`, and `platform`.
 
 Load it with:
+
 ```python
 from utils.data_loader import load_listings
 listings = load_listings()
@@ -47,10 +49,23 @@ listings = load_listings()
 - `empty_wardrobe`: a starting template for a new user
 
 Load an example wardrobe with:
+
 ```python
 from utils.data_loader import get_example_wardrobe
 wardrobe = get_example_wardrobe()
 ```
+
+## Tools
+
+### parse_query
+
+### search\_ listings
+
+### get_outfit_suggestion
+
+### get fit card
+
+##
 
 ## Where to Start
 

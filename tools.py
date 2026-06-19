@@ -13,11 +13,12 @@ Tools:
 """
 
 import os
+import json
 
 from dotenv import load_dotenv
 from groq import Groq
 
-from utils.data_loader import load_listings
+from utils.data_loader import load_listings, load_wardrobe_schema
 
 load_dotenv()
 
@@ -33,6 +34,44 @@ def _get_groq_client():
         )
     return Groq(api_key=api_key)
 
+
+# Query parser -------------------------------------------
+def parse_query(query: str) -> dict:
+
+    client = _get_groq_client()
+
+    prompt = f'''Can you please parse a description, a price, 
+    and size using the exact words provided in this string: {query}. 
+    The price should be formatted as just a number. No dollar sign or text. 
+    If not provided, the value is "None". 
+    Please format this as a json dictionary with these key names:
+    "description", "price", "size" and there respective values as strings. 
+    The output should only be this dictionary '''
+
+
+    response = client.chat.completions.create(
+        messages=[
+            {
+                "role": "user", 
+                "content": prompt
+            }
+        ], 
+        model="llama-3.3-70b-versatile"
+                )
+
+    #return response.choices[0].message.content
+    parsedQuery = response.choices[0].message.content
+    #print(f"first parse {parsedQuery}")
+    parsedQuery = json.loads(parsedQuery)
+
+    
+    for key in parsedQuery:
+        if parsedQuery[key] == "None":
+            parsedQuery[key] = None
+        elif key == "price":
+            parsedQuery[key] = float(parsedQuery[key])
+
+    return parsedQuery
 
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
 
@@ -69,8 +108,45 @@ def search_listings(
 
     Before writing code, fill in the Tool 1 section of planning.md.
     """
-    # Replace this with your implementation
-    return []
+
+
+   
+    listings = load_listings()
+   
+    #print(f"query: {description}, {size}, {max_price}")
+    if size is not None:
+        listings = [item for item in listings if item["size"]== size]
+        #print(f"listings after size: {listings}")
+    if max_price is not None:
+        listings = [item for item in listings if item["price"] <= max_price ]
+    
+    search_words = description.lower().split()
+
+    #print(f"looking for: {search_words}")
+    for item in listings:
+        item["score"] = 0
+
+        for word in search_words:
+            #print(f"item: {item["title"]} and {item["description"]} and {item["style_tags"]}")
+            if word in item["title"].lower():
+                item["score"] += 1
+                continue
+            elif word in item["description"].lower():
+                item["score"] += 1
+                continue
+            for tag in item["style_tags"]:
+                if word in tag.lower():
+                    item["score"] += 1
+                    break
+    
+    listings = [item for item in listings if item["score"] > 0]
+    #print(f"listings after score removal: {listings}")
+
+    listings.sort(key = lambda item: item["score"], reverse=True)
+    
+    #print(f"final listings: {listings}")
+    
+    return listings
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -101,7 +177,30 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Before writing code, fill in the Tool 2 section of planning.md.
     """
     # Replace this with your implementation
-    return ""
+
+    prompt = f'''Can you please give me 1 - 2 sentence of styling advice for this item: {new_item["title"]}. 
+        This item is a {new_item["description"].lower()}. 
+        Here are a few words that describe the overall vibe: {", ".join(new_item["style_tags"])}.
+        I would like 1 -3 clothing items that will pair well with it.'''
+    
+    if  wardrobe["items"]:
+        
+        wardrobe_readable = ", ".join(f'''{item["name"]}: I'd describe it as {item["style_tags"]}, and {item["notes"]}''' for item in wardrobe["items"])
+
+
+        prompt = prompt + f" You can use this wardrobe for the 1-3 items: {wardrobe_readable}."
+
+    client = _get_groq_client()
+    response = client.chat.completions.create(messages=[
+        {
+            "role": "user",
+            "content": prompt,
+        }
+    ],
+    model="llama-3.3-70b-versatile")
+
+    return response.choices[0].message.content
+     
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -133,5 +232,74 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
 
     Before writing code, fill in the Tool 3 section of planning.md.
     """
-    # Replace this with your implementation
-    return ""
+  
+    if not outfit.strip():
+        return "No outfit recieved"
+    
+    prompt = f'''I recently purchased this item, {new_item["title"].lower()} 
+    from {new_item["platform"]} for ${new_item["price"]:.2f}.
+    Here is an outfit suggestion I received for it: {outfit}. 
+    Can you please give me a caption that I can post that's unique to the vibe of the outfit. 
+    Mention the name, price, and platform once and briefly as an intro, 
+    and finish it with another 1-2 sentences detailing why this outfit is interesting.'''
+
+    client = _get_groq_client()
+    response = client.chat.completions.create(
+        messages=[
+            {
+                "role": "user", 
+                "content": prompt
+            }
+        ], 
+        model="llama-3.3-70b-versatile", temperature=1.2)
+    
+
+    return response.choices[0].message.content
+
+if __name__ == "__main__":
+
+    #parsed = parse_query("90s track jacket in size M")
+    parsed = parse_query("black combat boots size 8")
+    #parsed = parse_query("90s track jacket in size M")
+
+    print(f"parsed {parsed}")
+    if  parsed["price"] == None:
+        results =  search_listings(parsed["description"], parsed["size"], None)
+    else:
+        results = search_listings(parsed["description"], parsed["size"], parsed["price"])
+    ##results = search_listings("vintage graphic tee", None, 30.00)
+    
+    select_keys = ["title", "score"]
+
+    for item in results:
+        print(item.get(select_keys[0]))
+        print(item.get(select_keys[1]))
+    
+    #print(f" length: {len(results)}")
+   
+   
+    wardrobe = load_wardrobe_schema()
+    '''
+    if not results:
+        print ("No results returned")
+    else:
+        print(f"results {results}")
+        '''
+
+    outfit = suggest_outfit(results[0], wardrobe["example_wardrobe"])
+    print(outfit)
+
+    #outfit = suggest_outfit(results[0], wardrobe["empty_wardrobe"])
+    #print(outfit_empty)
+ 
+    wardrobe = load_wardrobe_schema()
+    outfit = suggest_outfit(results[0], wardrobe["example_wardrobe"])
+    caption = create_fit_card(outfit, results[0])
+    print(caption)
+  
+
+    #parsed = parse_query("vintage graphic tee under $30")
+    #print(f"parsed: {parsed} ")
+
+    
+

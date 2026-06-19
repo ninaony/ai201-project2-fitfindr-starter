@@ -18,7 +18,7 @@ Usage (once implemented):
     print(result["error"])   # None on success
 """
 
-from tools import search_listings, suggest_outfit, create_fit_card
+from tools import parse_query, search_listings, suggest_outfit, create_fit_card
 
 
 # ── session state ─────────────────────────────────────────────────────────────
@@ -94,8 +94,31 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     """
     # TODO: implement the planning loop
     session = _new_session(query, wardrobe)
-    session["error"] = "Planning loop not yet implemented."
+    
+    parsedQuery = parse_query(query)
+    #print(f"parsedQuery: {parsedQuery}")
+    if not parsedQuery:
+        session["error"] = "No item detected. Try something else!"
+        return session
+
+    session["search_results"] = search_listings(parsedQuery["description"], parsedQuery["size"], parsedQuery["price"])
+    
+    
+    #print(f"resutlts: {session["search_results"]}")
+
+    
+    if not session["search_results"]:
+        
+        session["error"] = "No item was found. Try something else!"
+        return session
+
+    session["selected_item"] = session["search_results"][0]
+    session["outfit_suggestion"] = suggest_outfit(session["selected_item"], wardrobe)
+    session["fit_card"] = create_fit_card(session["outfit_suggestion"], session["selected_item"])
+
+    
     return session
+
 
 
 # ── CLI test ──────────────────────────────────────────────────────────────────
@@ -103,9 +126,18 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 if __name__ == "__main__":
     from utils.data_loader import get_example_wardrobe, get_empty_wardrobe
 
+
+    EXAMPLE_QUERIES = [
+    "vintage graphic tee under $30",
+    "90s track jacket in size M",
+    "flowy midi skirt under $40",
+    "black combat boots size 8",
+    "designer ballgown size XXS under $5",   # deliberate no-results test
+]
+
     print("=== Happy path: graphic tee ===\n")
     session = run_agent(
-        query="looking for a vintage graphic tee under $30",
+        query="black combat boots size 8",
         wardrobe=get_example_wardrobe(),
     )
     if session["error"]:
