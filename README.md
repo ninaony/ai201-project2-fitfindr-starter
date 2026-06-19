@@ -14,6 +14,8 @@ set API key in .env here:
 GROQ_API_KEY=your_key_here
 ```
 
+then run:
+
 ```
 python app.py
 ```
@@ -52,7 +54,7 @@ Each listing has: `id`, `title`, `description`, `category`, `style_tags`, `size`
 
 ### The Wardrobe Schema
 
-`data/wardrobe_schema.json` contains a sample wardrobes— the app lets you toggle between this and an empty wardrobe to test both paths. It includes:
+`data/wardrobe_schema.json` contains sample wardrobes— the app lets you toggle between this and an empty wardrobe to test both paths. It includes:
 
 - `schema`: field definitions for a wardrobe item
 - `example_wardrobe`: a sample wardrobe with 10 items you can use for testing
